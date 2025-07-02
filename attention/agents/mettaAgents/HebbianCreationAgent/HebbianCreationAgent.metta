@@ -1,5 +1,5 @@
-!(bind! maxLinkNum 300) ; The maximum amount of links that can be created from a single atom
-!(bind! localToFarLinks 10) ;Ratio of local links to far links
+(bind! maxLinkNum 300) ; The maximum amount of links that can be created from a single atom
+(bind! localToFarLinks 10) ;Ratio of local links to far links
 
 ;Function: HebbianCreationAgent-Run
 ;Description: This function creates hebbian links between atoms in the attentional focus. It also creates links between atoms in the attentional focus and atoms outside the attentional focus. The number of links created between atoms in the attentional focus and atoms outside the attentional focus is determined by the localToFarLinks ratio. The function also removes links from the attentional focus if the number of incoming links exceeds the maxLinkNum.
@@ -25,40 +25,26 @@
                     (let*
                         (
                             ($removeHebbian (let $temp (removeHebbianLinksfromAF (collapse (match $space2 (HEBBIAN_LINK $a $b) (HEBBIAN_LINK $a $b)))) ()))
+                            ($removeSource
+                                (let $temp2 
+                                    (remove-atom (attentionalFocus) $source) ())) ; to minimize self connection I am unsure if this should exist
                             ($existingAsSourceHS  (getTargetNeighbors $source ASYMMETRIC_HEBBIAN_LINK $space)) ;;need to check if we should use source or sourceAtom
                             ($existingAsTarget  (getSourceNeighbors $source ASYMMETRIC_HEBBIAN_LINK $space))
                             ($needToBeSource ( setDifference $existingAsSourceHS) )
                             ($needToBeTarget  (setDifference $existingAsTarget))
                             ($count (size-atom $needToBeTarget ))
-                            ($_ (collapse 
-                                (let $target (superpose $needToBeSource)
-                                        (if (not (== $target $source)) 
-                                            (addHebbian $source $target)
-                                            ()
-                                        )
-                                ) 
-                                )
-                            )
-   
-                            ($__ (collapse 
-                                    (let $x (superpose $needToBeTarget)
-                                        (if (not (== $x $source)) 
-                                            (addHebbian $source $x)
-                                            ()
-                                        )
-                                    ) 
-                                )
-                            )
-                            ($farLinks (/ $count localToFarLinks )) ;round by default
+                            ($_ (collapse (addHebbian (superpose $needToBeSource) $source )))
+                            ($__ (collapse (addHebbian $source (superpose $needToBeTarget))))
+                            ($farLinks (/ $count (getAttentionParam LOCAL_FAR_LINK_RATIO) )) ;round by default
                             ($___ (addFromOutSideAF $source $farLinks))
                             ($incomingSet (getIncomingSetByType $source HEBBIAN_LINK)) ;should I add other types of hebbian links?
                         )
                         (
-                            (if (> (size-atom $incomingSet) maxLinkNum )
-                                (removeLinkRecursively (- (size-atom $incomingSet) maxLinkNum))
+                            (if (> (size-atom $incomingSet) (getAttentionParam MAX_LinkNum))
+                                (removeLinkRecursively (- (size-atom $incomingSet) (getAttentionParam MAX_LinkNum)))
                                 ()
                             )
-                            ()
+                            (add-atom $space2 $source)
                         )
                     )
                 )
@@ -149,7 +135,7 @@
                     (if (== (get-metatype $target) Expression)
                         (if (== (car-atom $target) HEBBIAN_LINK)
                             ()
-                            (if (and (atomIsInAF (ASYMMETRIC_HEBBIAN_LINK $source $target)) (== $target $source)) ;If the link exists dont add it again 
+                            (if (atomIsInAF (ASYMMETRIC_HEBBIAN_LINK $source $target)) ;If the link exists dont add it again 
                                 ()
                                 (
                                     (addHebbian $source $target )
